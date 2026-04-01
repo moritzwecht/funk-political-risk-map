@@ -11,7 +11,7 @@ export const state = {
 };
 
 // Data arrays and lookup maps (populated by loadData)
-export let COUNTRY_DATA = [];
+export const COUNTRY_DATA = [];
 export const dataByA3 = {};
 export const dataByA2 = {};
 
@@ -98,7 +98,11 @@ export async function loadData() {
   const headerMap = buildHeaderMap(rawHeaders);
 
   // Transform rows into country objects
-  COUNTRY_DATA = rows.map(row => parseRow(row, headerMap));
+  COUNTRY_DATA.length = 0;
+  rows.forEach(row => {
+    const entry = parseRow(row, headerMap);
+    if (entry.a3) COUNTRY_DATA.push(entry);
+  });
 
   // Build lookup maps
   for (const key in dataByA3) delete dataByA3[key];
