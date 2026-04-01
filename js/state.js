@@ -15,21 +15,57 @@ export let COUNTRY_DATA = [];
 export const dataByA3 = {};
 export const dataByA2 = {};
 
-// Column mapping: Excel header → object key
-const NUM_FIELDS = ['op', 'oc', 'tr', 'co', 'te', 'td'];
+// Map Excel column headers to internal keys.
+// Headers may contain extra whitespace, so we normalize before matching.
+const COLUMN_MAP = {
+  'alpha2':                       'a2',
+  'alpha3':                       'a3',
+  'numeric':                      'num',
+  'shortname_en':                 'en',
+  'shortname_de':                 'de',
+  'totaloperationalrisk':         'op',
+  'totalownershipcontrolrisk':    'oc',
+  'totaltransferrisk':            'tr',
+  'totalcorruptionrisk':          'co',
+  'totalterrorismrisk':           'te',
+  'totalcommercialrisk':          'gr',
+  'totalpoliticalrisk(5yeartrend)': 'td'
+};
 
-function parseRow(row) {
-  const entry = {
-    a2:  row.a2  || null,
-    a3:  row.a3  || null,
-    num: row.num != null ? String(row.num) : null,
-    en:  row.en  || null,
-    de:  row.de  || null,
-    gr:  row.gr  || null
-  };
-  for (const f of NUM_FIELDS) {
-    const val = row[f];
-    entry[f] = (val != null && val !== '') ? Number(val) : null;
+const NUM_FIELDS = new Set(['op', 'oc', 'tr', 'co', 'te', 'td']);
+
+function normalizeHeader(h) {
+  return String(h).replace(/\s+/g, '').toLowerCase();
+}
+
+function buildHeaderMap(rawHeaders) {
+  const map = {};
+  for (const raw of rawHeaders) {
+    const norm = normalizeHeader(raw);
+    if (COLUMN_MAP[norm]) {
+      map[raw] = COLUMN_MAP[norm];
+    }
+  }
+  return map;
+}
+
+function parseRow(row, headerMap) {
+  const entry = { a2: null, a3: null, num: null, en: null, de: null, op: null, oc: null, tr: null, co: null, te: null, gr: null, td: null };
+  for (const [rawCol, key] of Object.entries(headerMap)) {
+    let val = row[rawCol];
+    if (val == null || val === '' || val === '#') {
+      entry[key] = null;
+      continue;
+    }
+    if (typeof val === 'string') val = val.trim();
+    if (key === 'num') {
+      entry[key] = String(val);
+    } else if (NUM_FIELDS.has(key)) {
+      entry[key] = Number(val);
+      if (isNaN(entry[key])) entry[key] = null;
+    } else {
+      entry[key] = val;
+    }
   }
   return entry;
 }
@@ -54,10 +90,15 @@ export async function loadData() {
   // Parse workbook — read first sheet
   const workbook = XLSX.read(buffer, { type: 'array' });
   const sheetName = workbook.SheetNames[0];
-  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+  const sheet = workbook.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet);
+
+  // Build column mapping from actual Excel headers
+  const rawHeaders = rows.length > 0 ? Object.keys(rows[0]) : [];
+  const headerMap = buildHeaderMap(rawHeaders);
 
   // Transform rows into country objects
-  COUNTRY_DATA = rows.map(parseRow);
+  COUNTRY_DATA = rows.map(row => parseRow(row, headerMap));
 
   // Build lookup maps
   for (const key in dataByA3) delete dataByA3[key];
