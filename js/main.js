@@ -2,7 +2,7 @@
 // Political Risk Map 2026 — Main Application
 // ============================================
 
-import { CATS, weights, state } from './state.js';
+import { CATS, weights, state, loadData } from './state.js';
 import { initMap, updateMap, zoomIn, zoomOut, zoomReset, showInitError } from './map.js';
 import { buildSliders, updateSliderLabels } from './ui/sliders.js';
 import { buildLegend } from './ui/legend.js';
@@ -16,6 +16,9 @@ function onWeightsChange() {
 }
 
 async function init() {
+  // Load country data from Excel before building UI
+  await loadData();
+
   buildSliders(onWeightsChange);
   buildLegend();
   initSearch();
